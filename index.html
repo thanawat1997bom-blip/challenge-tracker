@@ -16,6 +16,9 @@
     --text: #f2f2f2;
     --muted: #9a9a9a;
     --red: #e63946;
+    --orange: #ff9800;
+    --yellow: #ffd60a;
+    --lightblue: #29b6f6;
     --green: #4caf50;
     box-sizing: border-box;
     padding-top: env(safe-area-inset-top, 0px);
@@ -55,6 +58,11 @@
     color: var(--muted);
     margin-bottom: 6px;
   }
+  .hint {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin: -8px 0 10px;
+  }
   input {
     width: 100%;
     padding: 10px 12px;
@@ -65,8 +73,6 @@
     font-size: 1rem;
     margin-bottom: 12px;
   }
-  .row { display: flex; gap: 10px; }
-  .row > div { flex: 1; }
   button {
     width: 100%;
     padding: 12px;
@@ -85,14 +91,16 @@
   }
   .summary {
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
     margin-bottom: 14px;
+    gap: 8px;
   }
-  .summary div { text-align: center; flex: 1; }
-  .summary .num { font-size: 1.3rem; font-weight: 700; }
-  .summary .lbl { font-size: 0.75rem; color: var(--muted); }
+  .summary div { text-align: center; flex: 1; min-width: 70px; }
+  .summary .num { font-size: 1.2rem; font-weight: 700; }
+  .summary .lbl { font-size: 0.72rem; color: var(--muted); }
   table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-  th, td { padding: 8px 4px; text-align: left; border-bottom: 1px solid var(--border); }
+  th, td { padding: 8px 4px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
   th { color: var(--muted); font-weight: 500; font-size: 0.75rem; }
   .bar-bg {
     background: #2a2a2a;
@@ -100,12 +108,14 @@
     height: 8px;
     width: 100%;
     overflow: hidden;
+    margin-top: 4px;
   }
-  .bar-fill {
-    height: 100%;
-    background: var(--red);
+  .bar-fill { height: 100%; }
+  .invest-line {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 4px;
   }
-  .bar-fill.done { background: var(--green); }
   .month-nav {
     display: flex;
     align-items: center;
@@ -114,7 +124,6 @@
   }
   .month-nav button { width: auto; padding: 6px 14px; }
   .month-label { font-weight: 600; }
-  .hint { font-size: 0.75rem; color: var(--muted); margin-top: -4px; }
   #toast {
     position: fixed;
     bottom: 24px;
@@ -131,6 +140,16 @@
   }
   #toast.show { opacity: 1; }
   details summary { cursor: pointer; color: var(--muted); font-size: 0.85rem; }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 0.68rem;
+    color: var(--muted);
+    margin-top: 10px;
+  }
+  .legend span { display: flex; align-items: center; gap: 4px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 </style>
 </head>
 <body>
@@ -154,8 +173,14 @@
   <div class="card">
     <label>วันที่</label>
     <input id="entryDate" type="date">
-    <label>ยอดที่ทำได้วันนี้ (บาท)</label>
-    <input id="entryAmount" type="number" placeholder="0">
+
+    <label>เพิ่ม/ลดยอดวันนี้ (บาท)</label>
+    <input id="entryAmount" type="number" placeholder="เช่น 500 หรือ -500 ถ้าขาดทุน">
+    <div class="hint">ใส่กี่ครั้งก็ได้ในวันเดียว ระบบจะบวกสะสมให้เอง ใส่ติดลบได้ถ้าขาดทุน</div>
+
+    <label>ยอดลงทุนวันนี้ (บาท) — ไม่บังคับ</label>
+    <input id="entryInvestment" type="number" placeholder="0">
+
     <button onclick="submitEntry()">บันทึก</button>
   </div>
 
@@ -170,21 +195,30 @@
       <div><div class="num" id="sumDays">0</div><div class="lbl">วันที่บันทึก</div></div>
       <div><div class="num" id="sumTotal">0</div><div class="lbl">ยอดรวม (บาท)</div></div>
       <div><div class="num" id="sumAvgPct">0%</div><div class="lbl">เฉลี่ย/เป้าหมาย</div></div>
+      <div><div class="num" id="sumInvest">0</div><div class="lbl">ลงทุนรวม (บาท)</div></div>
     </div>
 
     <table>
       <thead>
-        <tr><th>วันที่</th><th>ทำได้ / เป้าหมาย</th><th style="width:80px;">%</th></tr>
+        <tr><th>วันที่</th><th>ทำได้ / เป้าหมาย</th><th style="width:60px;">%</th></tr>
       </thead>
       <tbody id="tableBody"></tbody>
     </table>
+
+    <div class="legend">
+      <span><span class="dot" style="background:var(--red)"></span>0%</span>
+      <span><span class="dot" style="background:var(--orange)"></span>1-45%</span>
+      <span><span class="dot" style="background:var(--yellow)"></span>46-69%</span>
+      <span><span class="dot" style="background:var(--lightblue)"></span>70-99%</span>
+      <span><span class="dot" style="background:var(--green)"></span>100%+</span>
+    </div>
   </div>
 </div>
 
 <div id="toast"></div>
 
 <script>
-let currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+let currentMonth = new Date().toISOString().slice(0, 7);
 
 function getScriptUrl() { return localStorage.getItem("scriptUrl") || ""; }
 function getDailyTarget() { return Number(localStorage.getItem("dailyTarget")) || 3000; }
@@ -203,7 +237,7 @@ function showToast(msg) {
   const t = document.getElementById("toast");
   t.textContent = msg;
   t.classList.add("show");
-  setTimeout(() => t.classList.remove("show"), 2000);
+  setTimeout(() => t.classList.remove("show"), 2200);
 }
 
 function initSettingsFields() {
@@ -215,20 +249,35 @@ function initSettingsFields() {
   }
 }
 
+function percentColor(pct) {
+  if (pct <= 0) return "var(--red)";
+  if (pct <= 45) return "var(--orange)";
+  if (pct <= 69) return "var(--yellow)";
+  if (pct <= 99) return "var(--lightblue)";
+  return "var(--green)";
+}
+
 async function submitEntry() {
   const url = getScriptUrl();
   if (!url) { showToast("กรุณาตั้งค่า Script URL ก่อน"); return; }
   const date = document.getElementById("entryDate").value;
   const amount = document.getElementById("entryAmount").value;
+  const investment = document.getElementById("entryInvestment").value;
   if (!date || amount === "") { showToast("กรอกวันที่และยอดให้ครบ"); return; }
 
   try {
     await fetch(url, {
       method: "POST",
-      body: JSON.stringify({ date, target: getDailyTarget(), achieved: amount })
+      body: JSON.stringify({
+        date,
+        target: getDailyTarget(),
+        achieved: amount,
+        investment: investment || 0
+      })
     });
     showToast("บันทึกแล้ว ✅");
     document.getElementById("entryAmount").value = "";
+    document.getElementById("entryInvestment").value = "";
     currentMonth = date.slice(0, 7);
     loadMonth();
   } catch (err) {
@@ -261,20 +310,25 @@ function renderTable(rows) {
   rows.sort((a, b) => new Date(a.date) - new Date(b.date));
   const body = document.getElementById("tableBody");
   body.innerHTML = "";
-  let total = 0, pctSum = 0;
+  let total = 0, pctSum = 0, investTotal = 0;
 
   rows.forEach(r => {
-    const pct = parseInt(r.percent) || 0;
+    const pct = Number(r.percent) || 0;
+    const color = percentColor(pct);
     total += Number(r.achieved) || 0;
+    investTotal += Number(r.investment) || 0;
     pctSum += pct;
+
     const tr = document.createElement("tr");
+    const investLine = Number(r.investment) ? `<div class="invest-line">ลงทุน: ฿${Number(r.investment).toLocaleString()}</div>` : "";
     tr.innerHTML = `
       <td>${r.date}</td>
       <td>
         ฿${Number(r.achieved).toLocaleString()} / ฿${Number(r.target).toLocaleString()}
-        <div class="bar-bg"><div class="bar-fill ${pct >= 100 ? 'done' : ''}" style="width:${Math.min(pct,100)}%"></div></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${Math.min(Math.max(pct,0),100)}%; background:${color}"></div></div>
+        ${investLine}
       </td>
-      <td>${pct}%</td>
+      <td style="color:${color}; font-weight:700;">${pct}%</td>
     `;
     body.appendChild(tr);
   });
@@ -282,6 +336,7 @@ function renderTable(rows) {
   document.getElementById("sumDays").textContent = rows.length;
   document.getElementById("sumTotal").textContent = total.toLocaleString();
   document.getElementById("sumAvgPct").textContent = rows.length ? Math.round(pctSum / rows.length) + "%" : "0%";
+  document.getElementById("sumInvest").textContent = investTotal.toLocaleString();
 }
 
 initSettingsFields();
