@@ -150,6 +150,27 @@
   }
   .legend span { display: flex; align-items: center; gap: 4px; }
   .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .edit-btn {
+    cursor: pointer;
+    margin-left: 4px;
+    font-size: 0.85em;
+    opacity: 0.75;
+  }
+  .edit-btn:hover { opacity: 1; }
+  .row-edit input {
+    margin-bottom: 6px;
+  }
+  .row-edit .actions { display: flex; gap: 6px; }
+  .row-edit .actions button {
+    width: auto;
+    padding: 8px 14px;
+    font-size: 0.82rem;
+  }
+  .loading-row {
+    text-align: center;
+    color: var(--muted);
+    padding: 18px 0 !important;
+  }
 </style>
 </head>
 <body>
@@ -223,6 +244,8 @@ function localDateStr_(d) { return d.getFullYear() + "-" + pad2_(d.getMonth() + 
 function localMonthStr_(d) { return d.getFullYear() + "-" + pad2_(d.getMonth() + 1); }
 
 let currentMonth = localMonthStr_(new Date());
+let currentRows = [];
+let editingDate = null;
 
 function getScriptUrl() { return localStorage.getItem("scriptUrl") || ""; }
 function getDailyTarget() { return Number(localStorage.getItem("dailyTarget")) || 3000; }
@@ -298,22 +321,74 @@ function changeMonth(delta) {
   loadMonth();
 }
 
+function setLoading(isLoading) {
+  document.querySelectorAll(".month-nav button").forEach(b => b.disabled = isLoading);
+  if (isLoading) {
+    document.getElementById("tableBody").innerHTML =
+      "<tr><td colspan='3' class='loading-row'>⏳ กำลังโหลดข้อมูล...</td></tr>";
+  }
+}
+
 async function loadMonth() {
   document.getElementById("monthLabel").textContent = currentMonth;
   const url = getScriptUrl();
   if (!url) return;
 
+  editingDate = null;
+  setLoading(true);
   try {
     const res = await fetch(`${url}?month=${currentMonth}`);
     const data = await res.json();
-    renderTable(data.rows || []);
+    currentRows = data.rows || [];
+    renderTable();
   } catch (err) {
     document.getElementById("tableBody").innerHTML = "<tr><td colspan='3'>โหลดข้อมูลไม่สำเร็จ</td></tr>";
+  } finally {
+    setLoading(false);
   }
 }
 
-function renderTable(rows) {
-  rows.sort((a, b) => new Date(a.date) - new Date(b.date));
+function startEdit(date) {
+  editingDate = date;
+  renderTable();
+}
+
+function cancelEdit() {
+  editingDate = null;
+  renderTable();
+}
+
+async function saveEdit(date) {
+  const url = getScriptUrl();
+  if (!url) { showToast("กรุณาตั้งค่า Script URL ก่อน"); return; }
+
+  const row = currentRows.find(r => r.date === date);
+  if (!row) return;
+
+  const newAchieved = Number(document.getElementById("edit-achieved").value) || 0;
+  const newInvest = Number(document.getElementById("edit-invest").value) || 0;
+  const achievedDelta = newAchieved - (Number(row.achieved) || 0);
+  const investDelta = newInvest - (Number(row.investment) || 0);
+
+  try {
+    await fetch(url, {
+      method: "POST",
+      body: JSON.stringify({
+        date,
+        target: row.target || getDailyTarget(),
+        achieved: achievedDelta,
+        investment: investDelta
+      })
+    });
+    showToast("แก้ไขแล้ว ✅");
+    loadMonth();
+  } catch (err) {
+    showToast("แก้ไขไม่สำเร็จ ลองใหม่อีกครั้ง");
+  }
+}
+
+function renderTable() {
+  const rows = [...currentRows].sort((a, b) => new Date(a.date) - new Date(b.date));
   const body = document.getElementById("tableBody");
   body.innerHTML = "";
   let total = 0, pctSum = 0, investTotal = 0;
@@ -326,16 +401,32 @@ function renderTable(rows) {
     pctSum += pct;
 
     const tr = document.createElement("tr");
-    const investLine = Number(r.investment) ? `<div class="invest-line">ลงทุน: ฿${Number(r.investment).toLocaleString()}</div>` : "";
-    tr.innerHTML = `
-      <td>${r.date}</td>
-      <td>
-        ฿${Number(r.achieved).toLocaleString()} / ฿${Number(r.target).toLocaleString()}
-        <div class="bar-bg"><div class="bar-fill" style="width:${Math.min(Math.max(pct,0),100)}%; background:${color}"></div></div>
-        ${investLine}
-      </td>
-      <td style="color:${color}; font-weight:700;">${pct}%</td>
-    `;
+
+    if (editingDate === r.date) {
+      tr.classList.add("row-edit");
+      tr.innerHTML = `
+        <td>${r.date}</td>
+        <td colspan="2">
+          <input type="number" id="edit-achieved" value="${r.achieved}" placeholder="ยอดที่ทำได้">
+          <input type="number" id="edit-invest" value="${r.investment}" placeholder="ยอดลงทุน">
+          <div class="actions">
+            <button style="background:var(--green);" onclick="saveEdit('${r.date}')">✔ บันทึก</button>
+            <button class="secondary" onclick="cancelEdit()">ยกเลิก</button>
+          </div>
+        </td>
+      `;
+    } else {
+      const investLine = Number(r.investment) ? `<div class="invest-line">ลงทุน: ฿${Number(r.investment).toLocaleString()}</div>` : "";
+      tr.innerHTML = `
+        <td>${r.date} <span class="edit-btn" onclick="startEdit('${r.date}')">✏️</span></td>
+        <td>
+          ฿${Number(r.achieved).toLocaleString()} / ฿${Number(r.target).toLocaleString()}
+          <div class="bar-bg"><div class="bar-fill" style="width:${Math.min(Math.max(pct,0),100)}%; background:${color}"></div></div>
+          ${investLine}
+        </td>
+        <td style="color:${color}; font-weight:700;">${pct}%</td>
+      `;
+    }
     body.appendChild(tr);
   });
 
