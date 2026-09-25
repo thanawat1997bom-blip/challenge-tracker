@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0a">
+<title>Challenge Tracker</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --card: #161616;
+    --border: #2a2a2a;
+    --text: #f2f2f2;
+    --muted: #9a9a9a;
+    --red: #e63946;
+    --green: #4caf50;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
+  }
+  .wrap {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 20px 16px 60px;
+  }
+  h1 {
+    font-size: 1.4rem;
+    margin: 4px 0 2px;
+  }
+  .sub {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-bottom: 18px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: #0f0f0f;
+    color: var(--text);
+    font-size: 1rem;
+    margin-bottom: 12px;
+  }
+  .row { display: flex; gap: 10px; }
+  .row > div { flex: 1; }
+  button {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    background: var(--red);
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .summary {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .summary div { text-align: center; flex: 1; }
+  .summary .num { font-size: 1.3rem; font-weight: 700; }
+  .summary .lbl { font-size: 0.75rem; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { padding: 8px 4px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; font-size: 0.75rem; }
+  .bar-bg {
+    background: #2a2a2a;
+    border-radius: 6px;
+    height: 8px;
+    width: 100%;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    background: var(--red);
+  }
+  .bar-fill.done { background: var(--green); }
+  .month-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .month-nav button { width: auto; padding: 6px 14px; }
+  .month-label { font-weight: 600; }
+  .hint { font-size: 0.75rem; color: var(--muted); margin-top: -4px; }
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--green);
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  #toast.show { opacity: 1; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎯 Challenge Tracker</h1>
+  <div class="sub">บันทึกชาเลนจ์รายวัน แยกชีทอัตโนมัติเป็นรายเดือน</div>
+
+  <div class="card">
+    <details id="settingsBox">
+      <summary>⚙️ ตั้งค่า (ทำครั้งแรกครั้งเดียว)</summary>
+      <div style="margin-top:12px;">
+        <label>Apps Script Web App URL</label>
+        <input id="scriptUrl" placeholder="https://script.google.com/macros/s/xxxx/exec">
+        <label>เป้าหมายต่อวัน (บาท)</label>
+        <input id="dailyTarget" type="number" value="3000">
+        <button class="secondary" onclick="saveSettings()">บันทึกการตั้งค่า</button>
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <label>วันที่</label>
+    <input id="entryDate" type="date">
+    <label>ยอดที่ทำได้วันนี้ (บาท)</label>
+    <input id="entryAmount" type="number" placeholder="0">
+    <button onclick="submitEntry()">บันทึก</button>
+  </div>
+
+  <div class="card">
+    <div class="month-nav">
+      <button class="secondary" onclick="changeMonth(-1)">‹ เดือนก่อน</button>
+      <div class="month-label" id="monthLabel">-</div>
+      <button class="secondary" onclick="changeMonth(1)">เดือนถัดไป ›</button>
+    </div>
+
+    <div class="summary">
+      <div><div class="num" id="sumDays">0</div><div class="lbl">วันที่บันทึก</div></div>
+      <div><div class="num" id="sumTotal">0</div><div class="lbl">ยอดรวม (บาท)</div></div>
+      <div><div class="num" id="sumAvgPct">0%</div><div class="lbl">เฉลี่ย/เป้าหมาย</div></div>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>วันที่</th><th>ทำได้ / เป้าหมาย</th><th style="width:80px;">%</th></tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+
+function getScriptUrl() { return localStorage.getItem("scriptUrl") || ""; }
+function getDailyTarget() { return Number(localStorage.getItem("dailyTarget")) || 3000; }
+
+function saveSettings() {
+  const url = document.getElementById("scriptUrl").value.trim();
+  const target = document.getElementById("dailyTarget").value;
+  localStorage.setItem("scriptUrl", url);
+  localStorage.setItem("dailyTarget", target);
+  showToast("บันทึกการตั้งค่าแล้ว");
+  document.getElementById("settingsBox").removeAttribute("open");
+  loadMonth();
+}
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2000);
+}
+
+function initSettingsFields() {
+  document.getElementById("scriptUrl").value = getScriptUrl();
+  document.getElementById("dailyTarget").value = getDailyTarget();
+  document.getElementById("entryDate").value = new Date().toISOString().slice(0, 10);
+  if (!getScriptUrl()) {
+    document.getElementById("settingsBox").setAttribute("open", "true");
+  }
+}
+
+async function submitEntry() {
+  const url = getScriptUrl();
+  if (!url) { showToast("กรุณาตั้งค่า Script URL ก่อน"); return; }
+  const date = document.getElementById("entryDate").value;
+  const amount = document.getElementById("entryAmount").value;
+  if (!date || amount === "") { showToast("กรอกวันที่และยอดให้ครบ"); return; }
+
+  try {
+    await fetch(url, {
+      method: "POST",
+      body: JSON.stringify({ date, target: getDailyTarget(), achieved: amount })
+    });
+    showToast("บันทึกแล้ว ✅");
+    document.getElementById("entryAmount").value = "";
+    currentMonth = date.slice(0, 7);
+    loadMonth();
+  } catch (err) {
+    showToast("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง");
+  }
+}
+
+function changeMonth(delta) {
+  const [y, m] = currentMonth.split("-").map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  currentMonth = d.toISOString().slice(0, 7);
+  loadMonth();
+}
+
+async function loadMonth() {
+  document.getElementById("monthLabel").textContent = currentMonth;
+  const url = getScriptUrl();
+  if (!url) return;
+
+  try {
+    const res = await fetch(`${url}?month=${currentMonth}`);
+    const data = await res.json();
+    renderTable(data.rows || []);
+  } catch (err) {
+    document.getElementById("tableBody").innerHTML = "<tr><td colspan='3'>โหลดข้อมูลไม่สำเร็จ</td></tr>";
+  }
+}
+
+function renderTable(rows) {
+  rows.sort((a, b) => new Date(a.date) - new Date(b.date));
+  const body = document.getElementById("tableBody");
+  body.innerHTML = "";
+  let total = 0, pctSum = 0;
+
+  rows.forEach(r => {
+    const pct = parseInt(r.percent) || 0;
+    total += Number(r.achieved) || 0;
+    pctSum += pct;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.date}</td>
+      <td>
+        ฿${Number(r.achieved).toLocaleString()} / ฿${Number(r.target).toLocaleString()}
+        <div class="bar-bg"><div class="bar-fill ${pct >= 100 ? 'done' : ''}" style="width:${Math.min(pct,100)}%"></div></div>
+      </td>
+      <td>${pct}%</td>
+    `;
+    body.appendChild(tr);
+  });
+
+  document.getElementById("sumDays").textContent = rows.length;
+  document.getElementById("sumTotal").textContent = total.toLocaleString();
+  document.getElementById("sumAvgPct").textContent = rows.length ? Math.round(pctSum / rows.length) + "%" : "0%";
+}
+
+initSettingsFields();
+loadMonth();
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
