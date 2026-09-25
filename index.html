@@ -218,7 +218,11 @@
 <div id="toast"></div>
 
 <script>
-let currentMonth = new Date().toISOString().slice(0, 7);
+function pad2_(n) { return String(n).padStart(2, "0"); }
+function localDateStr_(d) { return d.getFullYear() + "-" + pad2_(d.getMonth() + 1) + "-" + pad2_(d.getDate()); }
+function localMonthStr_(d) { return d.getFullYear() + "-" + pad2_(d.getMonth() + 1); }
+
+let currentMonth = localMonthStr_(new Date());
 
 function getScriptUrl() { return localStorage.getItem("scriptUrl") || ""; }
 function getDailyTarget() { return Number(localStorage.getItem("dailyTarget")) || 3000; }
@@ -243,7 +247,7 @@ function showToast(msg) {
 function initSettingsFields() {
   document.getElementById("scriptUrl").value = getScriptUrl();
   document.getElementById("dailyTarget").value = getDailyTarget();
-  document.getElementById("entryDate").value = new Date().toISOString().slice(0, 10);
+  document.getElementById("entryDate").value = localDateStr_(new Date());
   if (!getScriptUrl()) {
     document.getElementById("settingsBox").setAttribute("open", "true");
   }
@@ -286,9 +290,11 @@ async function submitEntry() {
 }
 
 function changeMonth(delta) {
-  const [y, m] = currentMonth.split("-").map(Number);
-  const d = new Date(y, m - 1 + delta, 1);
-  currentMonth = d.toISOString().slice(0, 7);
+  let [y, m] = currentMonth.split("-").map(Number);
+  m += delta;
+  if (m < 1) { m = 12; y -= 1; }
+  if (m > 12) { m = 1; y += 1; }
+  currentMonth = y + "-" + pad2_(m);
   loadMonth();
 }
 
